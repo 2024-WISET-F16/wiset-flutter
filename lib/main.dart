@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class MyHomePage extends StatefulWidget {
   @override
@@ -9,8 +12,40 @@ class _MyHomePageState extends State<MyHomePage> {
   double _scale = 1.0;
   double _previousScale = 1.0;
   int level = 1;
+  String sunset = "";
+  String sunrise = "";
+  List<List<double>> temperatureData = [
+    [732.5, 918.6, 1124.3, 990.4, 837.0],
+    [704.3, 849.7, 1004.9, 885.8, 756.8],
+    [640.4, 721.0, 803.9, 729.2, 652.3],
+    [568.1, 623.7, 697.0, 688.5, 662.3],
+    [501.2, 545.6, 620.8, 658.4, 665.2],
+    [451.0, 465.1, 496.5, 528.5, 543.2],
+    [431.1, 425.1, 423.2, 439.9, 452.5]
+  ];
 
   final DraggableScrollableController draggableScrollableController = DraggableScrollableController();
+
+  @override
+  void initState() {
+    super.initState();
+    fetchSunriseSunset();
+  }
+
+  Future<void> fetchSunriseSunset() async {
+    final url = 'https://localhost:8080/sun/riseAndSet';
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final Map<String, String> jsonResponse = json.decode(response.body).cast<String, String>();
+      setState(() {
+        sunrise = jsonResponse['sunrise'] ?? "";
+        sunset = jsonResponse['sunset'] ?? "";
+      });
+    } else {
+      throw Exception('Failed to load sunrise and sunset times');
+    }
+  }
 
   void _resetScale() {
     setState(() {
@@ -64,7 +99,7 @@ class _MyHomePageState extends State<MyHomePage> {
             child: GestureDetector(
               onTap: () {
                 draggableScrollableController.animateTo(
-                  0.1, // 최소 크기로 이동
+                  0.1,
                   duration: Duration(seconds: 1),
                   curve: Curves.elasticIn,
                 );
@@ -88,16 +123,6 @@ class _MyHomePageState extends State<MyHomePage> {
                       padding: EdgeInsets.fromLTRB(change(true, 70), change(false, 150), 0, 0),
                       child: LayoutBuilder(
                         builder: (BuildContext context, BoxConstraints constraints) {
-                          final List<List<double>> temperatureData = [
-                            [732.5, 918.6, 1124.3, 990.4, 837.0],
-                            [704.3, 849.7, 1004.9, 885.8, 756.8],
-                            [640.4, 721.0, 803.9, 729.2, 652.3],
-                            [568.1, 623.7, 697.0, 688.5, 662.3],
-                            [501.2, 545.6, 620.8, 658.4, 665.2],
-                            [451.0, 465.1, 496.5, 528.5, 543.2],
-                            [431.1, 425.1, 423.2, 439.9, 452.5]
-                          ];
-
                           return Column(
                             children: temperatureData.map((row) {
                               return Row(
@@ -167,8 +192,8 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           DraggableScrollableSheet(
             controller: draggableScrollableController,
-            initialChildSize: 0.1,
-            minChildSize: 0.1,
+            initialChildSize: 0.09,
+            minChildSize: 0.09,
             maxChildSize: 0.5,
             builder: (BuildContext context, ScrollController scrollController) {
               return Container(
@@ -193,12 +218,12 @@ class _MyHomePageState extends State<MyHomePage> {
                     ListTile(
                       leading: Icon(Icons.sunny),
                       title: Text('오늘의 일출 시간'),
-                      subtitle: Text('6:00'),
+                      subtitle: Text(sunrise),
                     ),
                     ListTile(
                       leading: Icon(Icons.sunny_snowing),
                       title: Text('오늘의 일몰 시간'),
-                      subtitle: Text('18:00'),
+                      subtitle: Text(sunset),
                     ),
                     ListTile(
                       leading: Icon(Icons.align_vertical_bottom_outlined),
