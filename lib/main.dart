@@ -18,6 +18,7 @@ class _MyHomePageState extends State<MyHomePage> {
   String sunrise = "";
   double temperatureDataAvg = 0;
   double sunAngle = 0.0;
+  int currentLevel = 2;
 
   List<List<double>> temperatureData = [
     [732.5, 918.6, 1124.3, 990.4, 837.0],
@@ -116,96 +117,138 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // 여기서 levelProvider를 가져옵니다.
-    var levelProvider = Provider.of<LevelProvider>(context); // Provider를 통해 LevelProvider에 접근
     List<List<int>> hitMapLevel = [[4, 3], [7, 5], [10, 7]];
     ScrollController scrollController = ScrollController();
 
     return Scaffold(
-      body: SingleChildScrollView(
-        controller: scrollController,
-        child: Column(
-          children: <Widget>[
-            Stack(
-              children: <Widget> [
-                Positioned(
-                  top: change(false, 10),
-                  left: change(true, 40),
-                  child: CustomPaint(
-                    size: Size(change(true, 335), change(false, 300)),
-                    painter: SunPathPainter(sunAngle: sunAngle),
-                  ),
-                ),
-                SizedBox(
-                  child: Stack(
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(change(true, 70), change(false, 150), 0, 0),
-                        child: LayoutBuilder(
-                          builder: (BuildContext context, BoxConstraints constraints) {
-                            return Column(
-                              children: temperatureData.map((row) {
-                                return Row(
-                                  children: row.map((temperature) {
-                                    return GestureDetector(
-                                      onTap: () {
-                                        _showDialog(context, temperature);
-                                      },
-                                      child: Container(
-                                        width: cellSizeWidth,
-                                        height: cellSizeHeight,
-                                        color: getColorFromTemperature(temperature),
-                                      ),
+      body: Consumer<LevelProvider>(
+        builder: (context, levelProvider, child) {
+          fetchHitMapAntAvg(hitMapLevel[levelProvider.level - 1]);
+
+          return SingleChildScrollView(
+            controller: scrollController,
+            child: Column(
+              children: <Widget>[
+                Stack(
+                  children: <Widget>[
+                    Positioned(
+                      top: change(false, 10),
+                      left: change(true, 40),
+                      child: CustomPaint(
+                        size: Size(change(true, 335), change(false, 300)),
+                        painter: SunPathPainter(),
+                      ),
+                    ),
+                    SizedBox(
+                      child: Stack(
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(change(true, 70), change(false, 150), 0, 0),
+                            child: LayoutBuilder(
+                              builder: (BuildContext context, BoxConstraints constraints) {
+                                return Column(
+                                  children: temperatureData.map((row) {
+                                    return Row(
+                                      children: row.map((temperature) {
+                                        return GestureDetector(
+                                          onTap: () {
+                                            _showDialog(context, temperature);
+                                          },
+                                          child: Container(
+                                            width: cellSizeWidth,
+                                            height: cellSizeHeight,
+                                            color: getColorFromTemperature(temperature),
+                                          ),
+                                        );
+                                      }).toList(),
                                     );
                                   }).toList(),
                                 );
-                              }).toList(),
-                            );
-                          },
-                        ),
-                      ),
-                      IgnorePointer(
-                        child: CustomPaint(
-                          size: Size(change(true, 300), change(false, 300)),
-                          painter: RoomPainter(
-                            cellSize: 50,
-                            firstCellOffset: Offset(change(true, 70), change(false, 150)),
-                            change: change,
+                              },
+                            ),
                           ),
-                        ),
+                          IgnorePointer(
+                            child: CustomPaint(
+                              size: Size(change(true, 300), change(false, 300)),
+                              painter: RoomPainter(
+                                cellSize: 50,
+                                firstCellOffset: Offset(change(true, 70), change(false, 150)),
+                                change: change,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 25),
+                  child: Column(
+                    children: <Widget>[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Icon(Icons.align_vertical_bottom_outlined),
+                          SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text('평균 조도값'),
+                              Text(temperatureDataAvg.toString()),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: <Widget>[
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                Icon(Icons.sunny),
+                                SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text('오늘의 일출 시간'),
+                                    Text(sunrise),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                Icon(Icons.sunny),
+                                SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text('오늘의 일몰 시간'),
+                                    Text(sunset),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ),
+                )
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 90, vertical: 25),
-              child: Column(
-                children: <Widget>[
-                  ListTile(
-                    leading: Icon(Icons.sunny),
-                    title: Text('오늘의 일출 시간'),
-                    subtitle: Text(sunrise),
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.sunny_snowing),
-                    title: Text('오늘의 일몰 시간'),
-                    subtitle: Text(sunset),
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.align_vertical_bottom_outlined),
-                    title: Text('평균 조도값'),
-                    subtitle: Text(temperatureDataAvg.toString()),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
+
 
   void _showDialog(BuildContext context, double temperature) {
     showDialog(
