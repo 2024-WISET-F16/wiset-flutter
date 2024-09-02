@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -8,12 +10,12 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  double _scale = 1.0;
-  double _previousScale = 1.0;
   int level = 2;
   String sunset = "";
   String sunrise = "";
   double temperatureDataAvg = 0;
+  double sunAngle = 0.0;
+
   List<List<double>> temperatureData = [
     [732.5, 918.6, 1124.3, 990.4, 837.0],
     [704.3, 849.7, 1004.9, 885.8, 756.8],
@@ -26,25 +28,54 @@ class _MyHomePageState extends State<MyHomePage> {
   double cellSizeWidth = 50;
   double cellSizeHeight = 50;
 
-  final DraggableScrollableController draggableScrollableController = DraggableScrollableController();
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _initializeData();
+
+    // 해의 위치를 업데이트하는 타이머 설정 (1분마다 갱신)
+    Timer.periodic(Duration(minutes: 1), (Timer timer) {
+      setState(() {
+        _updateSunAngle();
+      });
+    });
   }
 
-  // 데이터 초기화를 위한 함수
   void _initializeData() async {
+    await Future.delayed(Duration(seconds: 1)); // 1초 지연 추가
     await fetchSunriseSunset();
     await fetchHitMapAntAvg([7, 5]); // 초기 데이터를 불러오기 위해 기본 값을 사용
     setState(() {
       cellSizeWidth = change(true, 50);
       cellSizeHeight = change(false, 50);
+      isLoading = false; // 데이터 로딩이 완료되면 로딩 상태를 false로 변경
+      _updateSunAngle(); // 초기 각도 설정
     });
   }
 
-  // 히트맵과 평균 데이터를 가져오는 함수
+  void _updateSunAngle() {
+    final now = DateTime.now();
+    final sunriseTime = _parseTime(sunrise);
+    final sunsetTime = _parseTime(sunset);
+
+    if (now.isAfter(sunriseTime) && now.isBefore(sunsetTime)) {
+      final totalDuration = sunsetTime.difference(sunriseTime).inMinutes;
+      final currentDuration = now.difference(sunriseTime).inMinutes;
+      sunAngle = pi * (currentDuration / totalDuration);
+    } else {
+      sunAngle = 0.0; // 해가 뜨지 않은 시간 또는 진 후에는 각도를 0으로 설정
+    }
+  }
+
+  DateTime _parseTime(String time) {
+    final parts = time.split(':');
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+    return DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, hour, minute);
+  }
+
   Future<void> fetchHitMapAntAvg(List<int> hitMapLevel) async {
     final hitMapRow = hitMapLevel[0];
     final hitMapCol = hitMapLevel[1];
@@ -65,7 +96,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  // 일출 및 일몰 시간을 가져오는 함수
   Future<void> fetchSunriseSunset() async {
     final url = 'http://localhost:8080/sun/riseAndSet';
     final response = await http.get(Uri.parse(url));
@@ -81,78 +111,38 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  // 스케일 초기화 함수
-  void _resetScale() {
-    setState(() {
-      _scale = 1.0;
-    });
-  }
-
-  // 조도 데이터를 보여주는 다이얼로그
-  void _showDialog(BuildContext context, double temperature) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Center(
-          child: AlertDialog(
-            content: Text('조도: ${temperature.toStringAsFixed(1)}'),
-            actions: <Widget>[
-              TextButton(
-                child: Text('닫기'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      },
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _buildMainContent(),
     );
   }
 
-  // 화면 크기에 따라 사이즈를 조정하는 함수
-  double change(bool isWidth, double size) {
-    final mediaQueryData = MediaQuery.of(context);
-    final deviceWidth = mediaQueryData.size.width;
-    final deviceHeight = mediaQueryData.size.height;
-    const double testDeviceWidth = 390.0;
-    const double testDeviceHeight = 844.0;
-
-    double scaleFactor = isWidth ? (deviceWidth / testDeviceWidth) : (deviceHeight / testDeviceHeight);
-
-    return size * scaleFactor;
+  Widget _buildLoadingScreen() {
+    return Center(
+      child: CircularProgressIndicator(),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {//250 350
+  Widget _buildMainContent() {
     List<List<int>> hitMapLevel = [[4, 3], [7, 5], [10, 7]];
+    ScrollController scrollController = ScrollController();
 
-    return Scaffold(
-      body: Stack(
+    return SingleChildScrollView(
+      controller: scrollController,
+      child: Column(
         children: <Widget>[
-          SizedBox(
-            height: change(false, 600),
-            child: GestureDetector(
-              onTap: () {
-                draggableScrollableController.animateTo(
-                  0.1,
-                  duration: Duration(seconds: 1),
-                  curve: Curves.elasticIn,
-                );
-              },
-              onScaleStart: (ScaleStartDetails details) {
-                _previousScale = _scale;
-              },
-              onScaleUpdate: (ScaleUpdateDetails details) {
-                setState(() {
-                  _scale = (_previousScale * details.scale).clamp(0.5, 3.0);
-                });
-              },
-              onScaleEnd: (ScaleEndDetails details) {
-                _previousScale = _scale;
-              },
-              child: Transform.scale(
-                scale: _scale,
+          Stack(
+            children: <Widget> [
+              Positioned(
+                top: change(false, 10),
+                left: change(true, 40),
+                child: CustomPaint(
+                  size: Size(change(true, 335), change(false, 300)),
+                  painter: SunPathPainter(sunAngle: sunAngle),
+                ),
+              ),
+              SizedBox(
                 child: Stack(
                   children: [
                     Padding(
@@ -193,95 +183,68 @@ class _MyHomePageState extends State<MyHomePage> {
                   ],
                 ),
               ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 90, vertical: 25),
+            child: Column(
+              children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.sunny),
+                  title: Text('오늘의 일출 시간'),
+                  subtitle: Text(sunrise),
+                ),
+                ListTile(
+                  leading: Icon(Icons.sunny_snowing),
+                  title: Text('오늘의 일몰 시간'),
+                  subtitle: Text(sunset),
+                ),
+                ListTile(
+                  leading: Icon(Icons.align_vertical_bottom_outlined),
+                  title: Text('평균 조도값'),
+                  subtitle: Text(temperatureDataAvg.toString()),
+                ),
+              ],
             ),
-          ),
-          Positioned(
-            right: 20,
-            bottom: 90,
-            child: FloatingActionButton(
-              onPressed: _resetScale,
-              tooltip: 'Reset',
-              child: const Icon(Icons.refresh),
-            ),
-          ),
-          Positioned(
-              left: 20,
-              top: change(false, 100),
-              child: SizedBox(
-                height: change(false, 260),
-                child: RotatedBox(
-                  quarterTurns: 1,
-                  child: Slider(
-                      value: level.toDouble(),
-                      min: 1,
-                      max: 3,
-                      divisions: 2,
-                      label: hitMapLevel[level-1][0].toString()+'x'+hitMapLevel[level-1][1].toString(),
-                      onChanged: (double value) {
-                        setState(() {
-                          level = value.round();
-                          fetchHitMapAntAvg(hitMapLevel[level-1]);
-                          setState(() {
-                            cellSizeWidth = change(true, 250 / hitMapLevel[level-1][1]);
-                            cellSizeHeight = change(false, 350 / hitMapLevel[level-1][0]);
-                          });
-                        });
-                      }
-                  ),
-                ),
-              )
-          ),
-          DraggableScrollableSheet(
-            controller: draggableScrollableController,
-            initialChildSize: 0.09,
-            minChildSize: 0.09,
-            maxChildSize: 0.5,
-            builder: (BuildContext context, ScrollController scrollController) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Color.fromRGBO(255, 255, 255, 0.95),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.5),
-                      spreadRadius: 6,
-                      blurRadius: 7,
-                      offset: Offset(0, 3), // 그림자 위치 변경
-                    ),
-                  ],
-                ),
-                child: ListView(
-                  controller: scrollController,
-                  children: <Widget>[
-                    ListTile(
-                      leading: Icon(Icons.sunny),
-                      title: Text('오늘의 일출 시간'),
-                      subtitle: Text(sunrise),
-                    ),
-                    ListTile(
-                      leading: Icon(Icons.sunny_snowing),
-                      title: Text('오늘의 일몰 시간'),
-                      subtitle: Text(sunset),
-                    ),
-                    ListTile(
-                      leading: Icon(Icons.align_vertical_bottom_outlined),
-                      title: Text('평균 조도값'),
-                      subtitle: Text(temperatureDataAvg.toString()),
-                    ),
-                  ],
-                ),
-              );
-            },
           ),
         ],
       ),
     );
   }
 
-  // 온도에 따라 색상을 반환하는 함수
+  void _showDialog(BuildContext context, double temperature) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Center(
+          child: AlertDialog(
+            content: Text('조도: ${temperature.toStringAsFixed(1)}'),
+            actions: <Widget>[
+              TextButton(
+                child: Text('닫기'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  double change(bool isWidth, double size) {
+    final mediaQueryData = MediaQuery.of(context);
+    final deviceWidth = mediaQueryData.size.width;
+    final deviceHeight = mediaQueryData.size.height;
+    const double testDeviceWidth = 390.0;
+    const double testDeviceHeight = 844.0;
+
+    double scaleFactor = isWidth ? (deviceWidth / testDeviceWidth) : (deviceHeight / testDeviceHeight);
+
+    return size * scaleFactor;
+  }
+
   Color getColorFromTemperature(double temperature) {
     if (temperature >= 1000) {
       return Colors.red;
@@ -292,7 +255,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  // 두 색상 사이의 색상을 보간하는 함수
   Color interpolateColor(Color start, Color end, double factor) {
     return Color.fromARGB(
       255,
@@ -300,6 +262,57 @@ class _MyHomePageState extends State<MyHomePage> {
       (start.green + (end.green - start.green) * factor).round(),
       (start.blue + (end.blue - start.blue) * factor).round(),
     );
+  }
+}
+
+class SunPathPainter extends CustomPainter {
+  final double sunAngle;
+
+  SunPathPainter({required this.sunAngle});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.grey
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7.0;
+
+    final double radius = size.width / 2;
+
+    // 반원을 그리기
+    final path = Path()
+      ..arcTo(
+        Rect.fromCircle(center: Offset(radius, radius), radius: radius),
+        pi, // 반원의 시작 각도
+        pi, // 반원의 길이
+        false,
+      );
+
+    canvas.drawPath(path, paint);
+
+    // 해의 위치를 계산
+    final sunX = radius + radius * cos(sunAngle);
+    final sunY = radius + radius * sin(sunAngle);
+
+    // 해 아이콘을 그리기
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(Icons.wb_sunny.codePoint),
+        style: TextStyle(
+          fontSize: 45.0,
+          fontFamily: Icons.wb_sunny.fontFamily,
+          color: Colors.yellow,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset(sunX - textPainter.width / 2, sunY - textPainter.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) {
+    return true; // 계속해서 해의 위치를 업데이트하기 위해 true로 설정
   }
 }
 
