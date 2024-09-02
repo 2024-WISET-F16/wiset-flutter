@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:wiset_project/roomPainter.dart';
 import 'package:wiset_project/sunPathPainter.dart';
+import 'levelProvider.dart';
 
 class MyHomePage extends StatefulWidget {
   @override
@@ -12,7 +14,6 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int level = 2;
   String sunset = "";
   String sunrise = "";
   double temperatureDataAvg = 0;
@@ -115,101 +116,93 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _buildMainContent(),
-    );
-  }
-
-  Widget _buildLoadingScreen() {
-    return Center(
-      child: CircularProgressIndicator(),
-    );
-  }
-
-  Widget _buildMainContent() {
+    // 여기서 levelProvider를 가져옵니다.
+    var levelProvider = Provider.of<LevelProvider>(context); // Provider를 통해 LevelProvider에 접근
     List<List<int>> hitMapLevel = [[4, 3], [7, 5], [10, 7]];
     ScrollController scrollController = ScrollController();
 
-    return SingleChildScrollView(
-      controller: scrollController,
-      child: Column(
-        children: <Widget>[
-          Stack(
-            children: <Widget> [
-              Positioned(
-                top: change(false, 10),
-                left: change(true, 40),
-                child: CustomPaint(
-                  size: Size(change(true, 335), change(false, 300)),
-                  painter: SunPathPainter(sunAngle: sunAngle),
+    return Scaffold(
+      body: SingleChildScrollView(
+        controller: scrollController,
+        child: Column(
+          children: <Widget>[
+            Stack(
+              children: <Widget> [
+                Positioned(
+                  top: change(false, 10),
+                  left: change(true, 40),
+                  child: CustomPaint(
+                    size: Size(change(true, 335), change(false, 300)),
+                    painter: SunPathPainter(sunAngle: sunAngle),
+                  ),
                 ),
-              ),
-              SizedBox(
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(change(true, 70), change(false, 150), 0, 0),
-                      child: LayoutBuilder(
-                        builder: (BuildContext context, BoxConstraints constraints) {
-                          return Column(
-                            children: temperatureData.map((row) {
-                              return Row(
-                                children: row.map((temperature) {
-                                  return GestureDetector(
-                                    onTap: () {
-                                      _showDialog(context, temperature);
-                                    },
-                                    child: Container(
-                                      width: cellSizeWidth,
-                                      height: cellSizeHeight,
-                                      color: getColorFromTemperature(temperature),
-                                    ),
-                                  );
-                                }).toList(),
-                              );
-                            }).toList(),
-                          );
-                        },
-                      ),
-                    ),
-                    IgnorePointer(
-                      child: CustomPaint(
-                        size: Size(change(true, 300), change(false, 300)),
-                        painter: RoomPainter(
-                          cellSize: 50,
-                          firstCellOffset: Offset(change(true, 70), change(false, 150)),
-                          change: change,
+                SizedBox(
+                  child: Stack(
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(change(true, 70), change(false, 150), 0, 0),
+                        child: LayoutBuilder(
+                          builder: (BuildContext context, BoxConstraints constraints) {
+                            return Column(
+                              children: temperatureData.map((row) {
+                                return Row(
+                                  children: row.map((temperature) {
+                                    return GestureDetector(
+                                      onTap: () {
+                                        _showDialog(context, temperature);
+                                      },
+                                      child: Container(
+                                        width: cellSizeWidth,
+                                        height: cellSizeHeight,
+                                        color: getColorFromTemperature(temperature),
+                                      ),
+                                    );
+                                  }).toList(),
+                                );
+                              }).toList(),
+                            );
+                          },
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 90, vertical: 25),
-            child: Column(
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.sunny),
-                  title: Text('오늘의 일출 시간'),
-                  subtitle: Text(sunrise),
-                ),
-                ListTile(
-                  leading: Icon(Icons.sunny_snowing),
-                  title: Text('오늘의 일몰 시간'),
-                  subtitle: Text(sunset),
-                ),
-                ListTile(
-                  leading: Icon(Icons.align_vertical_bottom_outlined),
-                  title: Text('평균 조도값'),
-                  subtitle: Text(temperatureDataAvg.toString()),
+                      IgnorePointer(
+                        child: CustomPaint(
+                          size: Size(change(true, 300), change(false, 300)),
+                          painter: RoomPainter(
+                            cellSize: 50,
+                            firstCellOffset: Offset(change(true, 70), change(false, 150)),
+                            change: change,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 90, vertical: 25),
+              child: Column(
+                children: <Widget>[
+                  ListTile(
+                    leading: Icon(Icons.sunny),
+                    title: Text('오늘의 일출 시간'),
+                    subtitle: Text(sunrise),
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.sunny_snowing),
+                    title: Text('오늘의 일몰 시간'),
+                    subtitle: Text(sunset),
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.align_vertical_bottom_outlined),
+                    title: Text('평균 조도값'),
+                    subtitle: Text(temperatureDataAvg.toString()),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-
 import 'setting.dart';
 import 'main.dart';
+import 'analyze.dart';
 
 class NavigationPage extends StatefulWidget {
   @override
@@ -13,6 +13,7 @@ class _NavigationPageState extends State<NavigationPage> {
 
   final List<Widget> _pages = [
     MyHomePage(),
+    AnalyzePage(),
     SettingPage()
   ];
 
@@ -39,8 +40,12 @@ class _NavigationPageState extends State<NavigationPage> {
             label: 'Home',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.analytics),
+            label: 'Analyze',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
-            label: 'Second Page',
+            label: 'Setting',
           ),
         ],
       ),
