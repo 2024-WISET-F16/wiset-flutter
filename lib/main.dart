@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:eventsource/eventsource.dart';
+
 import 'package:provider/provider.dart';
 import 'package:wiset_project/roomPainter.dart';
 import 'package:wiset_project/sunPathPainter.dart';
@@ -84,24 +87,33 @@ class _MyHomePageState extends State<MyHomePage> {
     final hitMapRow = hitMapLevel[0];
     final hitMapCol = hitMapLevel[1];
 
-    final url = 'http://localhost:8080/grid?x=$hitMapCol&y=$hitMapRow';
-    final response = await http.get(Uri.parse(url));
+    final url = 'http://15.164.63.241:8080/sse?x=$hitMapCol&y=$hitMapRow';
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> jsonResponse = json.decode(response.body);
-      setState(() {
-        temperatureData = jsonResponse['illum']
-            .map((row) => row.map((item) => item.toDouble()).toList())
-            .toList() ?? temperatureData;
-        temperatureDataAvg = (jsonResponse['avg'] ?? temperatureDataAvg) as double;
+    try {
+      // EventSource 객체를 사용하여 SSE 스트림 연결
+      EventSource eventSource = await EventSource.connect(url);
+
+      // 이벤트 수신 대기
+      eventSource.listen((Event event) {
+        if (event.data != null) {
+          final Map<String, dynamic> jsonResponse = json.decode(event.data!);
+
+          // UI 업데이트
+          setState(() {
+            temperatureData = jsonResponse['illum']
+                .map((row) => row.map((item) => item.toDouble()).toList())
+                .toList() ?? temperatureData;
+            temperatureDataAvg = (jsonResponse['avg'] ?? temperatureDataAvg) as double;
+          });
+        }
       });
-    } else {
-      throw Exception('Failed to load hitmap and hitmap avg');
+    } catch (e) {
+      print('Failed to connect to SSE stream: $e');
     }
   }
 
   Future<void> fetchSunriseSunset() async {
-    final url = 'http://localhost:8080/sun/riseAndSet';
+    final url = 'http://15.164.63.241:8080/sun/riseAndSet';
     final response = await http.get(Uri.parse(url));
 
     if (response.statusCode == 200) {
@@ -136,7 +148,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       left: change(true, 40),
                       child: CustomPaint(
                         size: Size(change(true, 335), change(false, 300)),
-                        painter: SunPathPainter(),
+                        painter: SunPathPainter(sunrise: sunrise, sunset: sunset),
                       ),
                     ),
                     SizedBox(
